@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">BT Player</string>
+    <string name="no_track">Sin reproducción</string>
+    <string name="waiting">Esperando música por Bluetooth…</string>
+    <string name="prev">Anterior</string>
+    <string name="playpause">Play/Pausa</string>
+    <string name="next">Siguiente</string>
+    <string name="eq">Ecualizador</string>
+</resources>
