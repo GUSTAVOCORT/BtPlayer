@@ -53,8 +53,16 @@ object NwdProtocol {
     val NAME_KEYS = listOf(EXTRA_MEDIA_NAME, "extra_media_name", "btm_title", "btm_btmusic_title", "mediaName")
     val ARTIST_KEYS = listOf(EXTRA_MEDIA_ARTIST, "extra_media_artist", "btm_artist", "mediaArtist")
     val ALBUM_KEYS = listOf(EXTRA_MEDIA_ALBUM, "extra_media_ablum", "btm_album", "mediaAlbum")
-    val DURATION_KEYS = listOf(EXTRA_MEDIA_DURATION, "extra_meida_duration", EXTRA_MEDIA_TOTAL_TIME, "extra_media_total_time")
-    val POSITION_KEYS = listOf(EXTRA_MEDIA_CURRENT_POSITION, "extra_media_current_position")
+    val DURATION_KEYS = listOf(
+        EXTRA_MEDIA_DURATION, "extra_meida_duration", EXTRA_MEDIA_TOTAL_TIME,
+        "extra_media_total_time", "duration", "total_time", "totalTime",
+        "media_duration", "btm_duration", "song_duration", "playTotalTime"
+    )
+    val POSITION_KEYS = listOf(
+        EXTRA_MEDIA_CURRENT_POSITION, "extra_media_current_position",
+        "position", "current_position", "currentPosition", "cur_time",
+        "curTime", "play_time", "playTime", "elapsed", "btm_position"
+    )
 
     // ---- Extras del camino AVRCP ID3 (BC03) ----
     const val EXTRA_ID3_TITLE = "EXTRA_AVRCP_ID3_TITLE"

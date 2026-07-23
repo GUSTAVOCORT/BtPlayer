@@ -6,7 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 
-/** Estado actual de lo que suena, tal como lo entiende la app. */
+/** Estado actual de lo que suena. */
 data class PlaybackState(
     var title: String = "",
     var artist: String = "",
@@ -17,32 +17,30 @@ data class PlaybackState(
     var deviceName: String = "",
     var connected: Boolean = false
 ) {
-    /** Clave para saber si cambio la cancion (y regenerar la caratula). */
     fun trackKey() = "$title|$artist|$album"
 }
 
 /**
- * Escucha los broadcasts del firmware NWD/BC03 y mantiene un PlaybackState.
- * Es tolerante: prueba varias claves de extra porque el firmware no siempre
- * usa el mismo nombre, y acepta duracion/posicion tanto en ms como en seg.
+ * Escucha los broadcasts del firmware NWD/BC03. Ademas de mantener el estado,
+ * guarda un LOG CRUDO de cada intent (accion + todos los extras con tipo y
+ * valor). Ese log revela por que los tiempos no cuadran.
  */
 class BtMediaReceiver(
-    private val onChange: (PlaybackState) -> Unit
+    private val onChange: (PlaybackState) -> Unit,
+    private val onLog: (String) -> Unit = {}
 ) : BroadcastReceiver() {
 
     val state = PlaybackState()
+    private val logBuf = StringBuilder()
 
     fun register(ctx: Context) {
-        val f = IntentFilter().apply {
-            NwdProtocol.ALL_INCOMING.forEach { addAction(it) }
-        }
+        val f = IntentFilter().apply { NwdProtocol.ALL_INCOMING.forEach { addAction(it) } }
         if (Build.VERSION.SDK_INT >= 33) {
             ctx.registerReceiver(this, f, Context.RECEIVER_EXPORTED)
         } else {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             ctx.registerReceiver(this, f)
         }
-        // Pedir al sistema que reemita la pista actual, por si ya venia sonando.
         try { ctx.sendBroadcast(Intent(NwdProtocol.ACTION_QUERY_ID3)) } catch (_: Throwable) {}
     }
 
@@ -50,11 +48,29 @@ class BtMediaReceiver(
         try { ctx.unregisterReceiver(this) } catch (_: Throwable) {}
     }
 
+    fun dumpLog(): String = logBuf.toString()
+
     override fun onReceive(context: Context?, intent: Intent?) {
         intent ?: return
         val a = intent.action ?: return
-        var changed = true
 
+        val short = a.substringAfterLast('.')
+        logBuf.append('[').append(short).append("] ")
+        val ex = intent.extras
+        if (ex != null) {
+            for (k in ex.keySet()) {
+                val v = try { ex.get(k) } catch (_: Throwable) { "?" }
+                val typ = v?.javaClass?.simpleName ?: "null"
+                logBuf.append(k).append('(').append(typ).append(")=").append(v).append("  ")
+            }
+        } else {
+            logBuf.append("(sin extras)")
+        }
+        logBuf.append('\n')
+        if (logBuf.length > 6000) logBuf.delete(0, logBuf.length - 4000)
+        onLog(logBuf.toString())
+
+        var changed = true
         when (a) {
             NwdProtocol.ACTION_MEDIA_INFO -> {
                 firstString(intent, NwdProtocol.NAME_KEYS)?.let { state.title = it }
@@ -79,19 +95,15 @@ class BtMediaReceiver(
             NwdProtocol.ACTION_A2DP_ESTABLISHED,
             NwdProtocol.ACTION_AVRCP_ESTABLISHED -> state.connected = true
             NwdProtocol.ACTION_A2DP_RELEASE,
-            NwdProtocol.ACTION_AVRCP_RELEASE -> {
-                state.connected = false; state.isPlaying = false
-            }
-            NwdProtocol.ACTION_BT_NAME_CHANGE -> {
+            NwdProtocol.ACTION_AVRCP_RELEASE -> { state.connected = false; state.isPlaying = false }
+            NwdProtocol.ACTION_BT_NAME_CHANGE ->
                 intent.getStringExtra(NwdProtocol.EXTRA_BT_NAME)?.let { state.deviceName = it }
-            }
-            NwdProtocol.ACTION_BT_CONNECTION_CHANGE -> { /* solo refresca */ }
+            NwdProtocol.ACTION_BT_CONNECTION_CHANGE -> {}
             else -> changed = false
         }
         if (changed) onChange(state)
     }
 
-    /** Devuelve el primer extra de tipo String que exista entre las claves. */
     private fun firstString(i: Intent, keys: List<String>): String? {
         for (k in keys) {
             val v = i.getStringExtra(k)
@@ -100,7 +112,6 @@ class BtMediaReceiver(
         return null
     }
 
-    /** Igual pero para numeros; acepta long, int o incluso string numerica. */
     private fun firstLong(i: Intent, keys: List<String>): Long? {
         for (k in keys) {
             if (!i.hasExtra(k)) continue
@@ -108,12 +119,11 @@ class BtMediaReceiver(
             if (asLong != Long.MIN_VALUE) return asLong
             val asInt = i.getIntExtra(k, Int.MIN_VALUE)
             if (asInt != Int.MIN_VALUE) return asInt.toLong()
-            val asStr = i.getStringExtra(k)
-            asStr?.toLongOrNull()?.let { return it }
+            val asStr = i.getStringExtra(k)?.toLongOrNull()
+            if (asStr != null) return asStr
         }
         return null
     }
 
-    /** El firmware manda a veces segundos y a veces milisegundos: unificar. */
     private fun normalizeMs(v: Long): Long = if (v in 1..99_999) v * 1000 else v
 }

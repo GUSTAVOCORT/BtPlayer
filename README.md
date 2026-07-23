@@ -1,34 +1,39 @@
-# BT Player — reproductor Bluetooth para head unit Allwinner T3
+# BT Player v2 — reproductor Bluetooth para head unit Allwinner T3
 
-App nativa Kotlin que muestra la música que llega al equipo por Bluetooth
-desde el teléfono: título, artista, álbum, tiempos y barra de progreso,
-controles play/pausa/anterior/siguiente, visualizador de espectro y
-ecualizador de 5 bandas.
+Muestra la música que llega por Bluetooth desde el teléfono, con visualizador
+configurable, ecualizador, reloj Nixie, fondo cargable y neón.
 
-## Cómo funciona
-El audio A2DP no pasa por la app (lo decodifica el teléfono y lo entrega al
-mixer de Android). Esta app:
-- **Escucha** los broadcasts internos del firmware NWD/BC03 para la metadata
-  (`send_media_play_info`, `send_media_play_time`, `ACTION_AVRCP_MUSIC_ID3`).
-- **Envía** comandos de control por `ACTION_A2DP_CONTROL_COMMAND`.
-- **Engancha** `Visualizer(0)` y `Equalizer(0)` a la mezcla global de audio.
+## Novedades v2
+- **Visualizador configurable**: 5 estilos (barras, espejo, línea, puntos,
+  onda), 8 paletas de color, cantidad de barras ajustable, neón on/off,
+  barras redondeadas o rectas.
+- **Reloj Nixie**: estilo tubos antiguos con halo de colores, como modo de
+  pantalla dedicado o combinado con el reproductor.
+- **Fondo cargable**: elegí una imagen del equipo como fondo, con
+  oscurecimiento ajustable.
+- **Carátula mejorada**: 3 estilos (inicial, abstracto, anillos), esquinas
+  redondeadas y glow.
+- **Panel de ajustes** (botón ⚙) con todo lo anterior, y persistente.
+- **Diagnóstico de tiempos**: en Ajustes → "Mostrar datos crudos del
+  Bluetooth" aparece abajo un panel con TODO lo que manda el firmware
+  (acción + extras + tipos + valores). Sirve para ver por qué los tiempos
+  no cuadran.
 
-La carátula se genera localmente (inicial + degradado por canción) porque el
-Bluetooth no transmite la imagen del álbum.
+## Sobre los tiempos
+Si la posición/duración se ve mal, activá el diagnóstico y mirá el panel
+verde de abajo mientras suena música. Fijate qué clave trae la duración y la
+posición, y en qué unidad (segundos o milisegundos). Con esa línea puedo
+afinar el mapeo exacto — está preparado para varias variantes pero el dato
+real manda.
 
 ## Compilar
-Subí el contenido de esta carpeta a un repo de GitHub (incluyendo la carpeta
+Subí el contenido de esta carpeta a un repo de GitHub (incluida la carpeta
 oculta `.github`). El workflow corre `gradle assembleDebug` y sube el APK
 como artifact `BtPlayer-debug-apk`.
 
-## Uso en el auto
-1. Instalá el APK.
-2. Al abrir, aceptá el permiso de micrófono (lo necesita el visualizador).
-3. Emparejá el teléfono y poné música.
-4. Deberías ver título/artista/tiempos y las barras moverse.
-5. Probá play/pausa/next: si el módulo responde, listo. Si no reacciona,
-   avisame y ajusto los códigos de comando (ver `NwdProtocol.CMD_*`).
-
-## Nota sobre los controles
-Los códigos de comando son los AVRCP estándar. Si tu firmware espera otros
-valores, es un ajuste de una línea en `NwdProtocol.kt` tras la primera prueba.
+## Uso
+1. Instalá, aceptá el permiso de micrófono (para el visualizador).
+2. Emparejá el teléfono y poné música.
+3. Botón ⚙ para personalizar todo. Botón EQ para el ecualizador.
+4. Si los botones de control no responden, avisá: los códigos de comando
+   se ajustan en `NwdProtocol.kt`.
