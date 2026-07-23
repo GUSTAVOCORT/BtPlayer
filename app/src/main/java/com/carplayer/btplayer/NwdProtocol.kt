@@ -54,11 +54,14 @@ object NwdProtocol {
     val ARTIST_KEYS = listOf(EXTRA_MEDIA_ARTIST, "extra_media_artist", "btm_artist", "mediaArtist")
     val ALBUM_KEYS = listOf(EXTRA_MEDIA_ALBUM, "extra_media_ablum", "btm_album", "mediaAlbum")
     val DURATION_KEYS = listOf(
+        "key_a2dp_total_time", "KEY_A2DP_TOTAL_TIME",   // <-- claves REALES del firmware
         EXTRA_MEDIA_DURATION, "extra_meida_duration", EXTRA_MEDIA_TOTAL_TIME,
-        "extra_media_total_time", "duration", "total_time", "totalTime",
+        "extra_media_total_time", "extra_media_total_size",
+        "duration", "total_time", "totalTime",
         "media_duration", "btm_duration", "song_duration", "playTotalTime"
     )
     val POSITION_KEYS = listOf(
+        "key_a2dp_cur_time", "KEY_A2DP_CUR_TIME",       // <-- claves REALES del firmware
         EXTRA_MEDIA_CURRENT_POSITION, "extra_media_current_position",
         "position", "current_position", "currentPosition", "cur_time",
         "curTime", "play_time", "playTime", "elapsed", "btm_position"
@@ -75,20 +78,19 @@ object NwdProtocol {
     // ---- Control de reproduccion (los ENVIAMOS nosotros) ----
     const val ACTION_CONTROL = "com.nwd.ACTION_A2DP_CONTROL_COMMAND"
     const val ACTION_CONTROL_ALT = "com.nwd.ACTION_PLAY_BTMUSIC_CMD"
-    const val EXTRA_COMMAND = "EXTRA_COMMAND"
+    const val EXTRA_COMMAND = "extra_command"   // minuscula, confirmado en el firmware
 
     /**
-     * Codigos de comando AVRCP passthrough estandar. El BTService del BC03
-     * los reenvia al modulo. Son los valores AVRCP universales; si el
-     * firmware usara otros, se ajusta tras la primera prueba.
+     * Valores REALES de extra_command, extraidos de A2DPManager.onReceive
+     * del APK del fabricante. NO son los codigos AVRCP estandar.
+     *   NEXT=0  FORCE_PLAY=1  PREVIOUS=2  PAUSE=3  PLAY=4
      */
-    const val CMD_PLAY = 0x44
-    const val CMD_PAUSE = 0x46
-    const val CMD_NEXT = 0x4B
-    const val CMD_PREV = 0x4C
-    const val CMD_STOP = 0x45
-    const val CMD_FF = 0x49
-    const val CMD_REW = 0x48
+    const val CMD_NEXT = 0
+    const val CMD_FORCE_PLAY = 1
+    const val CMD_PREV = 2
+    const val CMD_PAUSE = 3
+    const val CMD_PLAY = 4
+    const val CMD_STOP = 3     // sin stop dedicado: usamos pausa
 
     /** Pregunta al sistema que reenvie la ID3 actual (por si arrancamos tarde). */
     const val ACTION_QUERY_ID3 = "com.nwd.ACTION_QUERY_A2DP_ID3"

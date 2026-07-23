@@ -47,15 +47,28 @@ object SettingsDialog {
 
         // --- Cantidad de barras ---
         root.addView(header("Cantidad de barras"))
-        val counts = listOf(24, 32, 48, 64, 80)
+        val counts = listOf(20, 28, 40, 56, 72)
         root.addView(chips(ctx, counts.map { it.toString() }, counts.indexOf(prefs.vizBars).coerceAtLeast(0)) { i ->
             prefs.vizBars = counts[i]; onApply()
         })
 
+        // --- Tamaño (altura) de las barras ---
+        root.addView(header("Tamaño de las barras"))
+        root.addView(slider(ctx, 60, 100, prefs.vizHeight) { v ->
+            prefs.vizHeight = v; onApply()
+        })
+
+        // --- Sensibilidad ---
+        root.addView(header("Sensibilidad (qué tanto reaccionan)"))
+        root.addView(slider(ctx, 80, 250, prefs.vizGain) { v ->
+            prefs.vizGain = v; onApply()
+        })
+
         // --- Toggles ---
         root.addView(header("Efectos"))
-        root.addView(check(ctx, "Neón (glow)", prefs.vizNeon) { prefs.vizNeon = it; onApply() })
+        root.addView(check(ctx, "Neón (glow) en barras", prefs.vizNeon) { prefs.vizNeon = it; onApply() })
         root.addView(check(ctx, "Barras redondeadas", prefs.vizRounded) { prefs.vizRounded = it; onApply() })
+        root.addView(check(ctx, "Neón tipo letrero en el texto", prefs.maskNeon) { prefs.maskNeon = it; onApply() })
 
         // --- Modo de pantalla ---
         root.addView(header("Pantalla"))
@@ -143,6 +156,38 @@ object SettingsDialog {
             setTextColor(Color.parseColor("#F2F4F8"))
             setOnCheckedChangeListener { _, v -> onChange(v) }
         }
+    }
+
+    /** Slider horizontal de min..max con etiqueta de valor a la derecha. */
+    private fun slider(ctx: Context, min: Int, max: Int, current: Int, onChange: (Int) -> Unit): View {
+        val row = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val label = TextView(ctx).apply {
+            text = current.toString()
+            setTextColor(Color.parseColor("#FFC400"))
+            textSize = 14f
+            width = dp(ctx, 52)
+            gravity = Gravity.END
+        }
+        val bar = android.widget.SeekBar(ctx).apply {
+            this.max = max - min
+            progress = (current - min).coerceIn(0, max - min)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: android.widget.SeekBar?, p: Int, fromUser: Boolean) {
+                    val value = min + p
+                    label.text = value.toString()
+                    if (fromUser) onChange(value)
+                }
+                override fun onStartTrackingTouch(s: android.widget.SeekBar?) {}
+                override fun onStopTrackingTouch(s: android.widget.SeekBar?) {}
+            })
+        }
+        row.addView(bar)
+        row.addView(label)
+        return row
     }
 
     private fun dp(ctx: Context, v: Int): Int =

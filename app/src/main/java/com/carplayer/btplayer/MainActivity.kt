@@ -99,6 +99,21 @@ class MainActivity : AppCompatActivity() {
         b.seek.progressTintList = android.content.res.ColorStateList.valueOf(accent)
         b.seek.thumbTintList = android.content.res.ColorStateList.valueOf(accent)
 
+        // Neon tipo letrero antiguo en las mascaras del reproductor
+        if (prefs.maskNeon) {
+            NeonFx.neonText(b.txtTitle, accent, 26f)
+            b.txtTitle.setTextColor(NeonFx.litColor(accent))
+            NeonFx.neonText(b.txtArtist, accent, 18f)
+            NeonFx.neonText(b.txtDevice, accent, 10f)
+            NeonFx.neonText(b.txtPos, accent, 10f)
+            NeonFx.neonText(b.txtDur, accent, 10f)
+        } else {
+            NeonFx.clear(b.txtTitle); b.txtTitle.setTextColor(0xFFF2F4F8.toInt())
+            NeonFx.clear(b.txtArtist)
+            NeonFx.clear(b.txtDevice)
+            NeonFx.clear(b.txtPos); NeonFx.clear(b.txtDur)
+        }
+
         // modo de pantalla
         when (prefs.screenMode) {
             0 -> { b.playerRoot.visibility = View.VISIBLE; b.clockRoot.visibility = View.GONE }

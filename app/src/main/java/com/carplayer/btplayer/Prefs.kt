@@ -22,8 +22,23 @@ class Prefs(ctx: Context) {
         set(v) { sp.edit().putInt("viz_palette", v).apply() }
 
     var vizBars: Int
-        get() = sp.getInt("viz_bars", 48)
+        get() = sp.getInt("viz_bars", 40)
         set(v) { sp.edit().putInt("viz_bars", v).apply() }
+
+    /** Altura máxima de las barras como % del alto disponible (60..100). */
+    var vizHeight: Int
+        get() = sp.getInt("viz_height", 92)
+        set(v) { sp.edit().putInt("viz_height", v).apply() }
+
+    /** Sensibilidad/ganancia del visualizador (100 = normal, hasta 250). */
+    var vizGain: Int
+        get() = sp.getInt("viz_gain", 130)
+        set(v) { sp.edit().putInt("viz_gain", v).apply() }
+
+    /** Neón tipo letrero antiguo en textos y máscaras del reproductor. */
+    var maskNeon: Boolean
+        get() = sp.getBoolean("mask_neon", true)
+        set(v) { sp.edit().putBoolean("mask_neon", v).apply() }
 
     var vizNeon: Boolean
         get() = sp.getBoolean("viz_neon", true)

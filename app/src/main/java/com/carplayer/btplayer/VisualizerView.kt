@@ -27,7 +27,9 @@ class VisualizerView @JvmOverloads constructor(
     var paletteIndex = 0
     var neon = true
     var rounded = true
-    var barCount = 48
+    var heightPct = 92      // alto maximo de barras como % (60..100)
+    var gain = 130          // ganancia/sensibilidad (100 = normal)
+    var barCount = 40
         set(v) { field = v.coerceIn(16, 96); rebuildArrays() }
 
     private var visualizer: Visualizer? = null
@@ -57,6 +59,8 @@ class VisualizerView @JvmOverloads constructor(
         paletteIndex = p.vizPalette
         neon = p.vizNeon
         rounded = p.vizRounded
+        heightPct = p.vizHeight
+        gain = p.vizGain
         barCount = p.vizBars
         buildShader(width, height)
         invalidate()
@@ -103,7 +107,7 @@ class VisualizerView @JvmOverloads constructor(
                 }
             }
             var v = (sum / per) / 128f
-            v = (v * 1.6f).coerceIn(0f, 1f)
+            v = (v * (gain / 100f)).coerceIn(0f, 1f)
             if (b < target.size) target[b] = v
         }
     }
@@ -145,8 +149,9 @@ class VisualizerView @JvmOverloads constructor(
         val gap = w / barCount * 0.28f
         val bw = (w / barCount) - gap
         var x = gap / 2f
+        val hp = heightPct / 100f
         val baseY = if (mirror) h / 2f else h
-        val maxH = if (mirror) h * 0.46f else h * 0.92f
+        val maxH = if (mirror) h * 0.5f * hp else h * hp
         val minH = h * 0.03f
         val r = if (rounded) bw * 0.45f else 0f
         paint.style = Paint.Style.FILL

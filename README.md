@@ -1,39 +1,29 @@
-# BT Player v2 — reproductor Bluetooth para head unit Allwinner T3
+# BT Player v3 — reproductor Bluetooth para head unit Allwinner T3
 
-Muestra la música que llega por Bluetooth desde el teléfono, con visualizador
-configurable, ecualizador, reloj Nixie, fondo cargable y neón.
+## Novedades v3 (lo importante)
+- **CONTROLES ARREGLADOS**: los botones next/prev/play/pausa ahora usan los
+  códigos reales del firmware (NEXT=0, PREVIOUS=2, PAUSE=3, PLAY=4 vía
+  `com.nwd.ACTION_A2DP_CONTROL_COMMAND` con `extra_command`), extraídos del
+  APK del fabricante. Antes usaban códigos AVRCP estándar que este módulo
+  BC03 ignora.
+- **TIEMPOS ARREGLADOS**: ahora lee `key_a2dp_cur_time` y
+  `key_a2dp_total_time` (las claves reales del firmware) además de las
+  anteriores. Nota: si tu teléfono no reporta la duración por Bluetooth,
+  la barra igual avanza con la posición.
+- **Barras más grandes y ajustables**: en Ajustes → tamaño de barras
+  (60–100%), cantidad (20–72) y sensibilidad (80–250%).
+- **Neón tipo letrero antiguo**: el título/artista y los tiempos irradian un
+  halo de color como un aviso luminoso. Se activa/desactiva en Ajustes →
+  "Neón tipo letrero en el texto".
 
-## Novedades v2
-- **Visualizador configurable**: 5 estilos (barras, espejo, línea, puntos,
-  onda), 8 paletas de color, cantidad de barras ajustable, neón on/off,
-  barras redondeadas o rectas.
-- **Reloj Nixie**: estilo tubos antiguos con halo de colores, como modo de
-  pantalla dedicado o combinado con el reproductor.
-- **Fondo cargable**: elegí una imagen del equipo como fondo, con
-  oscurecimiento ajustable.
-- **Carátula mejorada**: 3 estilos (inicial, abstracto, anillos), esquinas
-  redondeadas y glow.
-- **Panel de ajustes** (botón ⚙) con todo lo anterior, y persistente.
-- **Diagnóstico de tiempos**: en Ajustes → "Mostrar datos crudos del
-  Bluetooth" aparece abajo un panel con TODO lo que manda el firmware
-  (acción + extras + tipos + valores). Sirve para ver por qué los tiempos
-  no cuadran.
-
-## Sobre los tiempos
-Si la posición/duración se ve mal, activá el diagnóstico y mirá el panel
-verde de abajo mientras suena música. Fijate qué clave trae la duración y la
-posición, y en qué unidad (segundos o milisegundos). Con esa línea puedo
-afinar el mapeo exacto — está preparado para varias variantes pero el dato
-real manda.
+## Resto de funciones (de v2)
+Visualizador con 5 estilos y 8 paletas, reloj Nixie, fondo cargable,
+carátula generada con 3 estilos, ecualizador de 5 bandas, diagnóstico.
 
 ## Compilar
-Subí el contenido de esta carpeta a un repo de GitHub (incluida la carpeta
-oculta `.github`). El workflow corre `gradle assembleDebug` y sube el APK
-como artifact `BtPlayer-debug-apk`.
+Subí el contenido a un repo de GitHub (incluida `.github`). El workflow
+corre `gradle assembleDebug` y sube el APK como `BtPlayer-debug-apk`.
 
-## Uso
-1. Instalá, aceptá el permiso de micrófono (para el visualizador).
-2. Emparejá el teléfono y poné música.
-3. Botón ⚙ para personalizar todo. Botón EQ para el ecualizador.
-4. Si los botones de control no responden, avisá: los códigos de comando
-   se ajustan en `NwdProtocol.kt`.
+## Si algo aún no responde
+Con el diagnóstico activado, tocá los botones y mirá si aparece algún
+broadcast nuevo. Los códigos de comando están en `NwdProtocol.kt` (CMD_*).
