@@ -15,7 +15,8 @@ data class PlaybackState(
     var positionMs: Long = 0L,
     var isPlaying: Boolean = false,
     var deviceName: String = "",
-    var connected: Boolean = false
+    var connected: Boolean = false,
+    var progress: Int = -1          // 0..100 si el firmware lo manda, si no -1
 ) {
     fun trackKey() = "$title|$artist|$album"
 }
@@ -77,12 +78,19 @@ class BtMediaReceiver(
                 firstString(intent, NwdProtocol.ARTIST_KEYS)?.let { state.artist = it }
                 firstString(intent, NwdProtocol.ALBUM_KEYS)?.let { state.album = it }
                 firstLong(intent, NwdProtocol.DURATION_KEYS)?.let { state.durationMs = normalizeMs(it) }
+                firstLong(intent, NwdProtocol.POSITION_KEYS)?.let { state.positionMs = normalizeMs(it) }
+                firstLong(intent, NwdProtocol.PROGRESS_KEYS)?.let {
+                    if (it in 0..100) state.progress = it.toInt()
+                }
                 state.connected = true
             }
             NwdProtocol.ACTION_MEDIA_TIME -> {
                 firstLong(intent, NwdProtocol.POSITION_KEYS)?.let { state.positionMs = normalizeMs(it) }
                 firstLong(intent, NwdProtocol.DURATION_KEYS)?.let {
                     if (it > 0) state.durationMs = normalizeMs(it)
+                }
+                firstLong(intent, NwdProtocol.PROGRESS_KEYS)?.let {
+                    if (it in 0..100) state.progress = it.toInt()
                 }
             }
             NwdProtocol.ACTION_AVRCP_ID3 -> {

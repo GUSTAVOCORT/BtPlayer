@@ -62,9 +62,15 @@ object NwdProtocol {
     )
     val POSITION_KEYS = listOf(
         "key_a2dp_cur_time", "KEY_A2DP_CUR_TIME",       // <-- claves REALES del firmware
+        "PlaybtmusicPlayStatus__CurposTime", "CurposTime",
         EXTRA_MEDIA_CURRENT_POSITION, "extra_media_current_position",
         "position", "current_position", "currentPosition", "cur_time",
         "curTime", "play_time", "playTime", "elapsed", "btm_position"
+    )
+    /** Algunos firmwares mandan progreso 0-100 en vez de tiempo absoluto. */
+    val PROGRESS_KEYS = listOf(
+        "PlaybtmusicPlayStatus__ProgressBar", "ProgressBar",
+        "progress", "play_progress", "extra_media_progress"
     )
 
     // ---- Extras del camino AVRCP ID3 (BC03) ----
@@ -81,16 +87,24 @@ object NwdProtocol {
     const val EXTRA_COMMAND = "extra_command"   // minuscula, confirmado en el firmware
 
     /**
-     * Valores REALES de extra_command, extraidos de A2DPManager.onReceive
-     * del APK del fabricante. NO son los codigos AVRCP estandar.
-     *   NEXT=0  FORCE_PLAY=1  PREVIOUS=2  PAUSE=3  PLAY=4
+     * Valores REALES extraidos de las clases de constantes del firmware
+     * (BC03BTConstant.PlayCommand y BTConstant.MusicCommand). Hay DOS tablas
+     * porque el sistema tiene dos rutas de control. Enviamos por las dos.
+     *
+     *   BC03 PlayCommand:  PLAY=1 PAUSE=2 NEXT=3 PREVIOUS=4 FORCE_PLAY=5
+     *   BT   MusicCommand: PLAY=0 PAUSE=1 NEXT=2 PREVIOUS=3 FORCE_PLAY=4
      */
-    const val CMD_NEXT = 0
-    const val CMD_FORCE_PLAY = 1
-    const val CMD_PREV = 2
-    const val CMD_PAUSE = 3
-    const val CMD_PLAY = 4
-    const val CMD_STOP = 3     // sin stop dedicado: usamos pausa
+    const val BC03_PLAY = 1
+    const val BC03_PAUSE = 2
+    const val BC03_NEXT = 3
+    const val BC03_PREV = 4
+    const val BC03_FORCE_PLAY = 5
+
+    const val MC_PLAY = 0
+    const val MC_PAUSE = 1
+    const val MC_NEXT = 2
+    const val MC_PREV = 3
+    const val MC_FORCE_PLAY = 4
 
     /** Pregunta al sistema que reenvie la ID3 actual (por si arrancamos tarde). */
     const val ACTION_QUERY_ID3 = "com.nwd.ACTION_QUERY_A2DP_ID3"

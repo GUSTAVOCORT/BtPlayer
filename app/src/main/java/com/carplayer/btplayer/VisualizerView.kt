@@ -28,6 +28,7 @@ class VisualizerView @JvmOverloads constructor(
     var neon = true
     var rounded = true
     var heightPct = 92      // alto maximo de barras como % (60..100)
+    var widthPct = 72       // grosor de barras (20..100)
     var gain = 130          // ganancia/sensibilidad (100 = normal)
     var barCount = 40
         set(v) { field = v.coerceIn(16, 96); rebuildArrays() }
@@ -61,6 +62,7 @@ class VisualizerView @JvmOverloads constructor(
         rounded = p.vizRounded
         heightPct = p.vizHeight
         gain = p.vizGain
+        widthPct = p.vizWidth
         barCount = p.vizBars
         buildShader(width, height)
         invalidate()
@@ -136,17 +138,71 @@ class VisualizerView @JvmOverloads constructor(
         }
 
         when (style) {
-            0 -> drawBars(canvas, w, h, mirror = false)
-            1 -> drawBars(canvas, w, h, mirror = true)
-            2 -> drawLine(canvas, w, h, fill = false)
-            3 -> drawDots(canvas, w, h)
-            4 -> drawLine(canvas, w, h, fill = true)
-            else -> drawBars(canvas, w, h, mirror = false)
+            0 -> drawSegments(canvas, w, h, reflect = true)   // estilo CarMusicPlayer (LED apilado)
+            1 -> drawBars(canvas, w, h, mirror = false)        // barras solidas
+            2 -> drawBars(canvas, w, h, mirror = true)         // espejo
+            3 -> drawLine(canvas, w, h, fill = false)          // linea
+            4 -> drawDots(canvas, w, h)                        // puntos
+            5 -> drawLine(canvas, w, h, fill = true)           // onda
+            else -> drawSegments(canvas, w, h, reflect = true)
+        }
+    }
+
+    /**
+     * Estilo CarMusicPlayer: cada barra es una pila de segmentos LED con
+     * pequeños huecos entre ellos, y un reflejo espejado abajo que se desvanece.
+     * El color de cada segmento sale del degradado de la paleta segun su altura.
+     */
+    private fun drawSegments(canvas: Canvas, w: Float, h: Float, reflect: Boolean) {
+        val gapFactor = 0.5f - (widthPct / 100f) * 0.42f
+        val gap = w / barCount * gapFactor
+        val bw = (w / barCount) - gap
+        val hp = heightPct / 100f
+
+        // zona de barras arriba y reflejo abajo
+        val reflectFrac = if (reflect) 0.26f else 0f
+        val barZone = h * (1f - reflectFrac)
+        val baseY = barZone
+        val maxH = barZone * hp
+
+        val segH = maxH / 22f              // ~22 segmentos posibles
+        val segGap = segH * 0.28f
+        val segDraw = segH - segGap
+        val r = segDraw * 0.35f
+
+        var x = gap / 2f
+        paint.style = Paint.Style.FILL
+        for (i in 0 until barCount) {
+            val lvl = if (i < levels.size) levels[i] else 0f
+            val lit = (lvl * 22).toInt().coerceIn(0, 22)
+            for (s in 0 until lit) {
+                val segBottom = baseY - s * segH
+                val segTop = segBottom - segDraw
+                if (neon) {
+                    glowPaint.alpha = 90
+                    canvas.drawRoundRect(x, segTop, x + bw, segBottom, r, r, glowPaint)
+                }
+                canvas.drawRoundRect(x, segTop, x + bw, segBottom, r, r, paint)
+            }
+            // reflejo espejado abajo, mas tenue
+            if (reflect) {
+                val refCount = (lit * 0.5f).toInt()
+                for (s in 0 until refCount) {
+                    val segTop = baseY + s * segH
+                    val segBottom = segTop + segDraw
+                    paint.alpha = (90 - s * 12).coerceIn(15, 90)
+                    canvas.drawRoundRect(x, segTop, x + bw, segBottom, r, r, paint)
+                }
+                paint.alpha = 255
+            }
+            x += bw + gap
         }
     }
 
     private fun drawBars(canvas: Canvas, w: Float, h: Float, mirror: Boolean) {
-        val gap = w / barCount * 0.28f
+        // widthPct alto => barras mas gordas (menos gap)
+        val gapFactor = 0.5f - (widthPct / 100f) * 0.42f
+        val gap = w / barCount * gapFactor
         val bw = (w / barCount) - gap
         var x = gap / 2f
         val hp = heightPct / 100f

@@ -37,6 +37,13 @@ class MainActivity : AppCompatActivity() {
     private var playing = false
     private var userSeeking = false
 
+    // Respaldo de tiempo cuando el firmware manda todo en 0
+    private var firmwareGivesTime = false
+    private var lastProgress = -1
+    private var lastTimedKey = ""
+    private var elapsedBaseMs = 0L        // tiempo acumulado hasta la ultima pausa
+    private var elapsedSince = 0L         // instante en que arranco a correr
+
     private val PICK_BG = 777
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,10 +61,22 @@ class MainActivity : AppCompatActivity() {
             onLog = { log -> if (prefs.showDebug) ui.post { b.debugPanel.text = log } }
         )
 
-        b.btnPrev.setOnClickListener { controller.prev() }
-        b.btnNext.setOnClickListener { controller.next() }
+        b.btnPrev.setOnClickListener {
+            controller.prev(); resetOwnTimer()
+        }
+        b.btnNext.setOnClickListener {
+            controller.next(); resetOwnTimer()
+        }
         b.btnPlay.setOnClickListener {
-            controller.playPause(playing); playing = !playing; updatePlayIcon()
+            controller.playPause(playing)
+            // Congelar/reanudar el cronometro propio junto con el estado
+            if (playing) {
+                elapsedBaseMs += System.currentTimeMillis() - elapsedSince
+            } else {
+                elapsedSince = System.currentTimeMillis()
+            }
+            playing = !playing
+            updatePlayIcon()
         }
         b.btnEq.setOnClickListener { toggleEq() }
         b.btnSettings.setOnClickListener { openSettings() }
@@ -100,6 +119,7 @@ class MainActivity : AppCompatActivity() {
         b.seek.thumbTintList = android.content.res.ColorStateList.valueOf(accent)
 
         // Neon tipo letrero antiguo en las mascaras del reproductor
+        NeonFx.resetFlicker()
         if (prefs.maskNeon) {
             NeonFx.neonText(b.txtTitle, accent, 26f)
             b.txtTitle.setTextColor(NeonFx.litColor(accent))
@@ -107,6 +127,12 @@ class MainActivity : AppCompatActivity() {
             NeonFx.neonText(b.txtDevice, accent, 10f)
             NeonFx.neonText(b.txtPos, accent, 10f)
             NeonFx.neonText(b.txtDur, accent, 10f)
+            if (prefs.maskFlicker) {
+                // titileo tipo tubo de gas viejo en los textos principales
+                NeonFx.addFlicker(b.txtTitle, accent, 26f)
+                NeonFx.addFlicker(b.txtArtist, accent, 18f)
+                NeonFx.startFlicker()
+            }
         } else {
             NeonFx.clear(b.txtTitle); b.txtTitle.setTextColor(0xFFF2F4F8.toInt())
             NeonFx.clear(b.txtArtist)
@@ -123,6 +149,19 @@ class MainActivity : AppCompatActivity() {
         b.nixie.glow = prefs.nixieGlow
         b.nixie.use24h = prefs.nixie24h
         b.nixie.startClock()
+
+        // Tocar el reloj vuelve al reproductor (evita quedar atrapado)
+        b.clockRoot.setOnClickListener {
+            prefs.screenMode = 0
+            applyPrefs()
+        }
+
+        // Marco de neon tipo aviso luminoso
+        b.neonFrame.enabled2 = prefs.frameNeon
+        b.neonFrame.neonColor = accent
+        b.neonFrame.flicker = prefs.maskFlicker
+        if (prefs.frameNeon) b.neonFrame.startFx() else b.neonFrame.stopFx()
+        b.neonFrame.invalidate()
 
         // fondo
         val uriStr = prefs.bgUri
@@ -228,24 +267,69 @@ class MainActivity : AppCompatActivity() {
         playing = st.isPlaying
         updatePlayIcon()
 
+        // Al cambiar de cancion, reiniciar el cronometro propio de respaldo.
+        if (key != lastTimedKey) {
+            lastTimedKey = key
+            elapsedBaseMs = 0L
+            elapsedSince = System.currentTimeMillis()
+        }
+
         lastDurMs = st.durationMs
-        lastPosMs = st.positionMs
-        lastPosAt = System.currentTimeMillis()
-        b.txtDur.text = fmt(st.durationMs)
+        lastProgress = st.progress
+        // Solo confiar en la posicion del firmware si es > 0 (el tuyo manda 0).
+        if (st.positionMs > 0) {
+            lastPosMs = st.positionMs
+            lastPosAt = System.currentTimeMillis()
+            firmwareGivesTime = true
+        }
+        b.txtDur.text = if (st.durationMs > 0) fmt(st.durationMs) else "--:--"
     }
 
     private fun updatePlayIcon() { b.btnPlay.text = if (playing) "⏸" else "▶" }
 
+    /** Reinicia el cronometro propio (al saltar de cancion con next/prev). */
+    private fun resetOwnTimer() {
+        elapsedBaseMs = 0L
+        elapsedSince = System.currentTimeMillis()
+    }
+
+    /**
+     * Reloj de tiempos con tres estrategias, en orden de preferencia:
+     *  1. Posicion absoluta del firmware (si la manda > 0).
+     *  2. Progreso 0-100 del firmware (si lo manda), mapeado a la duracion.
+     *  3. Cronometro propio desde que empezo la cancion (fallback cuando el
+     *     firmware manda todo en 0, que es el caso de este equipo).
+     */
     private fun startClock() {
         ui.post(object : Runnable {
             override fun run() {
                 if (!userSeeking) {
                     val now = System.currentTimeMillis()
-                    val pos = if (playing) lastPosMs + (now - lastPosAt) else lastPosMs
-                    val clamped = if (lastDurMs > 0) pos.coerceAtMost(lastDurMs) else pos
+                    val posMs: Long
+                    val progressThousandths: Int
+
+                    when {
+                        firmwareGivesTime -> {
+                            posMs = if (playing) lastPosMs + (now - lastPosAt) else lastPosMs
+                            progressThousandths = if (lastDurMs > 0)
+                                ((posMs * 1000) / lastDurMs).toInt().coerceIn(0, 1000) else 0
+                        }
+                        lastProgress in 0..100 -> {
+                            progressThousandths = lastProgress * 10
+                            posMs = if (lastDurMs > 0) lastDurMs * lastProgress / 100 else 0L
+                        }
+                        else -> {
+                            // cronometro propio
+                            val run = if (playing) now - elapsedSince else 0L
+                            posMs = elapsedBaseMs + run
+                            progressThousandths = if (lastDurMs > 0)
+                                ((posMs * 1000) / lastDurMs).toInt().coerceIn(0, 1000) else 0
+                        }
+                    }
+
+                    val clamped = if (lastDurMs > 0) posMs.coerceAtMost(lastDurMs) else posMs
                     b.txtPos.text = fmt(clamped)
-                    b.seek.progress = if (lastDurMs > 0)
-                        ((clamped * 1000) / lastDurMs).toInt().coerceIn(0, 1000) else 0
+                    b.seek.progress = progressThousandths
                 }
                 ui.postDelayed(this, 250L)
             }
@@ -305,6 +389,17 @@ class MainActivity : AppCompatActivity() {
         return "%d:%02d".format(s / 60, s % 60)
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        // Si estamos en el reloj, volver al reproductor en vez de salir.
+        if (prefs.screenMode == 1) {
+            prefs.screenMode = 0
+            applyPrefs()
+        } else {
+            super.onBackPressed()
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         receiver.register(applicationContext)
@@ -317,6 +412,8 @@ class MainActivity : AppCompatActivity() {
         receiver.unregister(applicationContext)
         b.visualizer.stop()
         b.nixie.stopClock()
+        b.neonFrame.stopFx()
+        NeonFx.stopFlicker()
         super.onStop()
     }
 

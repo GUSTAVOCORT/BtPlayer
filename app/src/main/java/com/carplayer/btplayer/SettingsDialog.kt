@@ -33,7 +33,7 @@ object SettingsDialog {
 
         // --- Estilo de visualizador ---
         root.addView(header("Estilo de barras"))
-        val styles = listOf("Barras", "Espejo", "Línea", "Puntos", "Onda rellena")
+        val styles = listOf("Segmentos LED", "Barras", "Espejo", "Línea", "Puntos", "Onda rellena")
         root.addView(chips(ctx, styles, prefs.vizStyle) { i ->
             prefs.vizStyle = i; onApply()
         })
@@ -53,9 +53,15 @@ object SettingsDialog {
         })
 
         // --- Tamaño (altura) de las barras ---
-        root.addView(header("Tamaño de las barras"))
+        root.addView(header("Alto de las barras"))
         root.addView(slider(ctx, 60, 100, prefs.vizHeight) { v ->
             prefs.vizHeight = v; onApply()
+        })
+
+        // --- Grosor de barras ---
+        root.addView(header("Grosor de las barras"))
+        root.addView(slider(ctx, 20, 100, prefs.vizWidth) { v ->
+            prefs.vizWidth = v; onApply()
         })
 
         // --- Sensibilidad ---
@@ -69,6 +75,8 @@ object SettingsDialog {
         root.addView(check(ctx, "Neón (glow) en barras", prefs.vizNeon) { prefs.vizNeon = it; onApply() })
         root.addView(check(ctx, "Barras redondeadas", prefs.vizRounded) { prefs.vizRounded = it; onApply() })
         root.addView(check(ctx, "Neón tipo letrero en el texto", prefs.maskNeon) { prefs.maskNeon = it; onApply() })
+        root.addView(check(ctx, "Titileo del neón (tubo viejo)", prefs.maskFlicker) { prefs.maskFlicker = it; onApply() })
+        root.addView(check(ctx, "Marco de neón en la pantalla", prefs.frameNeon) { prefs.frameNeon = it; onApply() })
 
         // --- Modo de pantalla ---
         root.addView(header("Pantalla"))

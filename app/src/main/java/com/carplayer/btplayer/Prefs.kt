@@ -35,6 +35,11 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("viz_gain", 130)
         set(v) { sp.edit().putInt("viz_gain", v).apply() }
 
+    /** Marco de neon tipo aviso luminoso alrededor de la pantalla. */
+    var frameNeon: Boolean
+        get() = sp.getBoolean("frame_neon", true)
+        set(v) { sp.edit().putBoolean("frame_neon", v).apply() }
+
     /** Neón tipo letrero antiguo en textos y máscaras del reproductor. */
     var maskNeon: Boolean
         get() = sp.getBoolean("mask_neon", true)
@@ -51,6 +56,16 @@ class Prefs(ctx: Context) {
     var vizMirror: Boolean
         get() = sp.getBoolean("viz_mirror", false)
         set(v) { sp.edit().putBoolean("viz_mirror", v).apply() }
+
+    /** Ancho/grosor de las barras 20..100 (mas alto = mas gordas). */
+    var vizWidth: Int
+        get() = sp.getInt("viz_width", 72)
+        set(v) { sp.edit().putInt("viz_width", v.coerceIn(20, 100)).apply() }
+
+    /** Parpadeo sutil del neon (como tubo viejo). */
+    var maskFlicker: Boolean
+        get() = sp.getBoolean("mask_flicker", true)
+        set(v) { sp.edit().putBoolean("mask_flicker", v).apply() }
 
     // ---- Pantalla / modo ----
     var screenMode: Int

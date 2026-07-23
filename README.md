@@ -1,29 +1,35 @@
-# BT Player v3 — reproductor Bluetooth para head unit Allwinner T3
+# BT Player v5 — reproductor Bluetooth para head unit Allwinner T3
 
-## Novedades v3 (lo importante)
-- **CONTROLES ARREGLADOS**: los botones next/prev/play/pausa ahora usan los
-  códigos reales del firmware (NEXT=0, PREVIOUS=2, PAUSE=3, PLAY=4 vía
-  `com.nwd.ACTION_A2DP_CONTROL_COMMAND` con `extra_command`), extraídos del
-  APK del fabricante. Antes usaban códigos AVRCP estándar que este módulo
-  BC03 ignora.
-- **TIEMPOS ARREGLADOS**: ahora lee `key_a2dp_cur_time` y
-  `key_a2dp_total_time` (las claves reales del firmware) además de las
-  anteriores. Nota: si tu teléfono no reporta la duración por Bluetooth,
-  la barra igual avanza con la posición.
-- **Barras más grandes y ajustables**: en Ajustes → tamaño de barras
-  (60–100%), cantidad (20–72) y sensibilidad (80–250%).
-- **Neón tipo letrero antiguo**: el título/artista y los tiempos irradian un
-  halo de color como un aviso luminoso. Se activa/desactiva en Ajustes →
-  "Neón tipo letrero en el texto".
+## LO IMPORTANTE DE ESTA VERSIÓN: controles arreglados de raíz
 
-## Resto de funciones (de v2)
-Visualizador con 5 estilos y 8 paletas, reloj Nixie, fondo cargable,
-carátula generada con 3 estilos, ecualizador de 5 bandas, diagnóstico.
+Descompilando el firmware encontré el mecanismo EXACTO de control. El receptor
+`BaseInterface$5.onReceive` del sistema NWD procesa así:
+
+    Acción: com.nwd.ACTION_PLAY_BTMUSIC_CMD
+    Extra : extra_command
+       1 → togglePlayPause
+       2 → togglePrevious
+       3 → toggleNext
+
+El problema anterior: yo mandaba VARIOS comandos a la vez (dos tablas de código
+distintas + broadcasts de play/pause). El módulo recibía play + previous + next
+revueltos y hacía cualquier cosa — por eso "play cambiaba de canción" y
+"retroceder pausaba". Se pisaban entre sí.
+
+Ahora se manda UN SOLO comando limpio con el valor correcto. Los botones
+deberían funcionar bien: anterior, play/pausa y siguiente cada uno con su acción.
+
+## También en esta versión (de la v4)
+- Barras estilo CarMusicPlayer (segmentos LED apilados con reflejo).
+- Reloj Nixie realista (panal hexagonal, glow multicapa, vidrio).
+- Se puede salir del reloj (tocar la pantalla o botón atrás).
+- Marco de neón tipo aviso luminoso alrededor de la pantalla.
 
 ## Compilar
-Subí el contenido a un repo de GitHub (incluida `.github`). El workflow
-corre `gradle assembleDebug` y sube el APK como `BtPlayer-debug-apk`.
+Subí el contenido de esta carpeta a un repo (incluida la carpeta oculta
+`.github`). El workflow corre `gradle assembleDebug` y sube el APK.
 
-## Si algo aún no responde
-Con el diagnóstico activado, tocá los botones y mirá si aparece algún
-broadcast nuevo. Los códigos de comando están en `NwdProtocol.kt` (CMD_*).
+## Al probar
+Los botones anterior / play-pausa / siguiente ahora deberían hacer cada uno
+lo suyo, sin descoordinarse. Si algo sigue raro, el diagnóstico (⚙ → datos
+crudos) sigue disponible para verlo.

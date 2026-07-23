@@ -4,36 +4,36 @@ import android.content.Context
 import android.content.Intent
 
 /**
- * Envia comandos de control al modulo BT del fabricante.
+ * Control de reproduccion del modulo BT.
  *
- * Descubierto en A2DPManager.onReceive del APK: el broadcast
- * com.nwd.ACTION_A2DP_CONTROL_COMMAND lleva "extra_command" con un ENTERO:
- *   NEXT=0  FORCE_PLAY=1  PREVIOUS=2  PAUSE=3  PLAY=4
+ * Valores VERIFICADOS descompilando BaseInterface$5.onReceive del firmware:
  *
- * Mandamos el entero (camino confirmado) y como respaldo tambien los
- * broadcasts de conveniencia com.bt.ACTION_BT_MUSIC_PLAY/PAUSE.
+ *   Accion: com.nwd.ACTION_PLAY_BTMUSIC_CMD
+ *   Extra : extra_command (int)
+ *      1 -> togglePlayPause
+ *      2 -> togglePrevious
+ *      3 -> toggleNext
+ *
+ * CLAVE: hay que mandar UN SOLO comando limpio. Antes se enviaban varias
+ * combinaciones a la vez y el modulo recibia play+prev+next revueltos, por
+ * eso "play cambiaba de cancion" y "retroceder pausaba". Ahora, un comando.
  */
 class BtController(private val ctx: Context) {
 
-    private fun sendCommand(command: Int) {
+    private fun sendCmd(command: Int) {
         try {
-            ctx.sendBroadcast(Intent(NwdProtocol.ACTION_CONTROL).apply {
+            ctx.sendBroadcast(Intent(NwdProtocol.ACTION_CONTROL_ALT).apply {
                 putExtra(NwdProtocol.EXTRA_COMMAND, command)
             })
         } catch (_: Throwable) {}
     }
 
-    fun playPause(currentlyPlaying: Boolean) {
-        if (currentlyPlaying) {
-            sendCommand(NwdProtocol.CMD_PAUSE)   // 3
-            try { ctx.sendBroadcast(Intent(NwdProtocol.ACTION_BT_MUSIC_PAUSE)) } catch (_: Throwable) {}
-        } else {
-            sendCommand(NwdProtocol.CMD_PLAY)    // 4
-            try { ctx.sendBroadcast(Intent(NwdProtocol.ACTION_BT_MUSIC_PLAY)) } catch (_: Throwable) {}
-        }
-    }
+    /** 1 = toggle play/pausa. El firmware alterna solo, no necesita saber el estado. */
+    fun playPause(currentlyPlaying: Boolean) = sendCmd(1)
 
-    fun next() = sendCommand(NwdProtocol.CMD_NEXT)   // 0
-    fun prev() = sendCommand(NwdProtocol.CMD_PREV)   // 2
-    fun stop() = sendCommand(NwdProtocol.CMD_PAUSE)  // 3
+    /** 3 = siguiente. */
+    fun next() = sendCmd(3)
+
+    /** 2 = anterior. */
+    fun prev() = sendCmd(2)
 }
