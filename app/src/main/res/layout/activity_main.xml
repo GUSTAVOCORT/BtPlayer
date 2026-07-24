@@ -122,6 +122,10 @@
             android:layout_marginStart="14dp" android:background="@drawable/panel_bg" android:padding="10dp">
             <com.carplayer.btplayer.VisualizerView android:id="@+id/visualizer"
                 android:layout_width="match_parent" android:layout_height="match_parent"/>
+            <!-- Reloj embebido: se muestra en modo "reloj + musica", se oculta con el ecualizador -->
+            <com.carplayer.btplayer.NixieClock android:id="@+id/nixiePanel"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:visibility="gone"/>
         </FrameLayout>
     </LinearLayout>
 

@@ -7,7 +7,6 @@ import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -20,10 +19,10 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Reloj Nixie realista: cada digito en su tubo de vidrio con panal hexagonal
- * de fondo, digito con filamento naranja-ambar que irradia (varias capas de
- * glow), reflejo de vidrio y base con pines. Inspirado en las fotos reales de
- * tubos IN-14 / IN-12.
+ * Reloj Nixie legible: el digito se dibuja SOLIDO y nitido; el glow va DETRAS
+ * como halo, sin difuminar el numero. En hardware viejo el blur sobre el
+ * propio texto lo borraba, por eso antes desaparecia. Aca el nucleo del
+ * digito siempre es solido.
  */
 class NixieClock @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyle: Int = 0
@@ -32,10 +31,9 @@ class NixieClock @JvmOverloads constructor(
     var glow = true
     var use24h = false
 
-    // Colores del filamento ardiente (como neon de sodio)
-    private val coreColor = Color.parseColor("#FFB347")     // centro claro
-    private val glowColor = Color.parseColor("#FF7A18")     // halo naranja
-    private val deepGlow = Color.parseColor("#E8420E")      // halo profundo rojizo
+    private val coreColor = Color.parseColor("#FFC66B")     // digito claro
+    private val glowColor = Color.parseColor("#FF7A18")
+    private val deepGlow = Color.parseColor("#E8420E")
 
     private val digitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
@@ -47,17 +45,15 @@ class NixieClock @JvmOverloads constructor(
     }
     private val meshPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 1.4f
-        color = Color.parseColor("#3A2418")
+        strokeWidth = 1.2f
+        color = Color.parseColor("#2E2016")
     }
     private val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val tubeBottom = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private val ui = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() { invalidate(); ui.postDelayed(this, 1000L) }
     }
-
     fun startClock() { ui.removeCallbacks(tick); ui.post(tick) }
     fun stopClock() { ui.removeCallbacks(tick) }
     override fun onDetachedFromWindow() { stopClock(); super.onDetachedFromWindow() }
@@ -71,11 +67,11 @@ class NixieClock @JvmOverloads constructor(
 
         val w = width.toFloat(); val h = height.toFloat()
         val n = 4
-        val gapRatio = 0.16f
+        val gapRatio = 0.14f
         val totalGap = w * gapRatio
         val tubeW = (w - totalGap) / n
         val tubeGap = totalGap / (n + 1)
-        val tubeH = (tubeW * 2.4f).coerceAtMost(h * 0.9f)
+        val tubeH = (tubeW * 2.1f).coerceAtMost(h * 0.92f)
         val top = (h - tubeH) / 2f
 
         var x = tubeGap
@@ -84,104 +80,85 @@ class NixieClock @JvmOverloads constructor(
             x += tubeW + tubeGap
         }
 
-        // dos puntos entre HH:MM
         if (cal.get(Calendar.SECOND) % 2 == 0) {
             val cx = w / 2f
-            val dotR = tubeW * 0.05f
-            drawGlowDot(canvas, cx, top + tubeH * 0.4f, dotR)
-            drawGlowDot(canvas, cx, top + tubeH * 0.6f, dotR)
+            val dotR = tubeW * 0.055f
+            drawDot(canvas, cx, top + tubeH * 0.4f, dotR)
+            drawDot(canvas, cx, top + tubeH * 0.6f, dotR)
         }
     }
 
     private fun drawTube(canvas: Canvas, x: Float, top: Float, tw: Float, th: Float, digit: Int) {
         val rect = RectF(x, top, x + tw, top + th)
-        val corner = tw * 0.22f
+        val corner = tw * 0.2f
 
-        // 1. cuerpo del tubo: vidrio oscuro con leve calidez
+        // cuerpo del tubo
         glassPaint.shader = LinearGradient(x, top, x + tw, top + th,
-            intArrayOf(Color.parseColor("#241A14"), Color.parseColor("#0E0A08")),
+            intArrayOf(Color.parseColor("#1E1610"), Color.parseColor("#0C0906")),
             null, Shader.TileMode.CLAMP)
         glassPaint.style = Paint.Style.FILL
         canvas.drawRoundRect(rect, corner, corner, glassPaint)
+        glassPaint.shader = null
 
-        // 2. cuello superior del tubo (domo)
-        val neckW = tw * 0.28f
-        val neckPath = Path().apply {
-            moveTo(x + tw/2 - neckW/2, top + 2f)
-            quadTo(x + tw/2, top - th*0.08f, x + tw/2 + neckW/2, top + 2f)
-            close()
-        }
-        canvas.drawPath(neckPath, glassPaint)
-
-        // 3. panal hexagonal de fondo (la malla caracteristica)
+        // panal hexagonal tenue
         canvas.save()
         canvas.clipRect(rect)
         drawHexMesh(canvas, x, top, tw, th)
         canvas.restore()
 
-        // 4. digito con multiples capas de glow (de mas difuso a mas nitido)
         val cx = x + tw / 2f
-        val ts = th * 0.62f
-        val fm = run { digitPaint.textSize = ts; digitPaint.fontMetrics }
+        val ts = th * 0.58f
+        digitPaint.textSize = ts
+        glowPaint.textSize = ts
+        val fm = digitPaint.fontMetrics
         val by = top + th / 2f - (fm.ascent + fm.descent) / 2f
         val d = digit.toString()
 
+        // GLOW detras (difuso) — solo si glow activo
         if (glow) {
-            glowPaint.textSize = ts
-            // halo profundo rojizo, muy difuso
             glowPaint.color = deepGlow
-            glowPaint.alpha = 130
-            glowPaint.maskFilter = BlurMaskFilter(ts * 0.28f, BlurMaskFilter.Blur.NORMAL)
+            glowPaint.alpha = 110
+            glowPaint.maskFilter = BlurMaskFilter(ts * 0.22f, BlurMaskFilter.Blur.NORMAL)
             canvas.drawText(d, cx, by, glowPaint)
-            // halo naranja medio
             glowPaint.color = glowColor
-            glowPaint.alpha = 200
-            glowPaint.maskFilter = BlurMaskFilter(ts * 0.14f, BlurMaskFilter.Blur.NORMAL)
+            glowPaint.alpha = 160
+            glowPaint.maskFilter = BlurMaskFilter(ts * 0.10f, BlurMaskFilter.Blur.NORMAL)
             canvas.drawText(d, cx, by, glowPaint)
             glowPaint.maskFilter = null
         }
-        // nucleo claro del digito
+        // NUCLEO del digito: SIEMPRE solido y nitido (nunca se difumina)
         digitPaint.color = coreColor
-        digitPaint.textSize = ts
+        digitPaint.maskFilter = null
         canvas.drawText(d, cx, by, digitPaint)
 
-        // 5. reflejo de vidrio: brillo diagonal arriba-izquierda
-        glassPaint.shader = LinearGradient(x, top, x + tw*0.6f, top + th*0.5f,
-            intArrayOf(Color.parseColor("#40FFFFFF"), Color.TRANSPARENT),
+        // reflejo de vidrio arriba
+        glassPaint.shader = LinearGradient(x, top, x, top + th * 0.4f,
+            intArrayOf(Color.parseColor("#33FFFFFF"), Color.TRANSPARENT),
             null, Shader.TileMode.CLAMP)
-        canvas.drawRoundRect(RectF(x, top, x + tw, top + th*0.5f), corner, corner, glassPaint)
+        canvas.drawRoundRect(RectF(x, top, x + tw, top + th * 0.4f), corner, corner, glassPaint)
         glassPaint.shader = null
 
-        // 6. borde del tubo
+        // borde
         glassPaint.style = Paint.Style.STROKE
-        glassPaint.strokeWidth = tw * 0.02f
-        glassPaint.color = Color.parseColor("#55FFFFFF")
+        glassPaint.strokeWidth = tw * 0.018f
+        glassPaint.color = Color.parseColor("#40FFFFFF")
         canvas.drawRoundRect(rect, corner, corner, glassPaint)
         glassPaint.style = Paint.Style.FILL
-
-        // 7. base con pines abajo
-        val baseTop = top + th
-        tubeBottom.color = Color.parseColor("#1A1410")
-        canvas.drawRoundRect(RectF(x + tw*0.15f, baseTop - tw*0.05f, x + tw*0.85f, baseTop + th*0.05f),
-            corner*0.3f, corner*0.3f, tubeBottom)
     }
 
-    /** Malla hexagonal tenue (el "panal" de los tubos reales). */
     private fun drawHexMesh(canvas: Canvas, x: Float, top: Float, tw: Float, th: Float) {
-        val hexR = tw * 0.09f
+        val hexR = tw * 0.1f
         val hStep = hexR * 1.5f
-        val vStep = (hexR * 0.866f) * 2f
+        val vStep = hexR * 0.866f
         var row = 0
         var cy = top + hexR
         while (cy < top + th) {
             val offset = if (row % 2 == 0) 0f else hStep * 0.5f
             var cx = x + offset
             while (cx < x + tw + hexR) {
-                drawHex(canvas, cx, cy, hexR)
-                cx += hStep
+                drawHex(canvas, cx, cy, hexR); cx += hStep
             }
-            cy += vStep * 0.5f
-            row++
+            cy += vStep; row++
         }
     }
 
@@ -196,16 +173,16 @@ class NixieClock @JvmOverloads constructor(
         canvas.drawPath(p, meshPaint)
     }
 
-    private fun drawGlowDot(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+    private fun drawDot(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         if (glow) {
             glowPaint.color = glowColor
-            glowPaint.alpha = 200
-            glowPaint.maskFilter = BlurMaskFilter(r, BlurMaskFilter.Blur.NORMAL)
+            glowPaint.alpha = 160
             glowPaint.style = Paint.Style.FILL
+            glowPaint.maskFilter = BlurMaskFilter(r * 0.8f, BlurMaskFilter.Blur.NORMAL)
             canvas.drawCircle(cx, cy, r, glowPaint)
             glowPaint.maskFilter = null
         }
         digitPaint.color = coreColor
-        canvas.drawCircle(cx, cy, r * 0.7f, digitPaint)
+        canvas.drawCircle(cx, cy, r * 0.75f, digitPaint)
     }
 }

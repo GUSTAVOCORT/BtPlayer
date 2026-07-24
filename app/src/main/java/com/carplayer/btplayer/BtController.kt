@@ -6,17 +6,13 @@ import android.content.Intent
 /**
  * Control de reproduccion del modulo BT.
  *
- * Valores VERIFICADOS descompilando BaseInterface$5.onReceive del firmware:
+ * Verificado en BaseInterface$5.onReceive:
+ *   com.nwd.ACTION_PLAY_BTMUSIC_CMD + extra_command:
+ *      1 -> togglePlayPause    2 -> togglePrevious    3 -> toggleNext
  *
- *   Accion: com.nwd.ACTION_PLAY_BTMUSIC_CMD
- *   Extra : extra_command (int)
- *      1 -> togglePlayPause
- *      2 -> togglePrevious
- *      3 -> toggleNext
- *
- * CLAVE: hay que mandar UN SOLO comando limpio. Antes se enviaban varias
- * combinaciones a la vez y el modulo recibia play+prev+next revueltos, por
- * eso "play cambiaba de cancion" y "retroceder pausaba". Ahora, un comando.
+ * next/prev funcionan por esa via. El play/pausa por comando 1 no respondia en
+ * este equipo, asi que ademas mandamos el broadcast directo de play/pause que
+ * el propio sistema emite (ACTION_BT_MUSIC_PLAY / PAUSE).
  */
 class BtController(private val ctx: Context) {
 
@@ -28,12 +24,25 @@ class BtController(private val ctx: Context) {
         } catch (_: Throwable) {}
     }
 
-    /** 1 = toggle play/pausa. El firmware alterna solo, no necesita saber el estado. */
-    fun playPause(currentlyPlaying: Boolean) = sendCmd(1)
+    private fun sendAction(action: String) {
+        try { ctx.sendBroadcast(Intent(action)) } catch (_: Throwable) {}
+    }
 
-    /** 3 = siguiente. */
+    /**
+     * Play/pausa: mandamos el toggle por comando (1) Y ademas el broadcast
+     * directo segun el estado actual, para cubrir ambos mecanismos.
+     */
+    fun playPause(currentlyPlaying: Boolean) {
+        sendCmd(1)
+        if (currentlyPlaying) {
+            sendAction(NwdProtocol.ACTION_BT_MUSIC_PAUSE)
+            sendCmd(NwdProtocol.MC_PAUSE)   // por si acepta la otra tabla
+        } else {
+            sendAction(NwdProtocol.ACTION_BT_MUSIC_PLAY)
+            sendCmd(NwdProtocol.MC_PLAY)
+        }
+    }
+
     fun next() = sendCmd(3)
-
-    /** 2 = anterior. */
     fun prev() = sendCmd(2)
 }

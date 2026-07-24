@@ -1,35 +1,34 @@
-# BT Player v5 — reproductor Bluetooth para head unit Allwinner T3
+# BT Player v6 — reproductor Bluetooth para head unit Allwinner T3
 
-## LO IMPORTANTE DE ESTA VERSIÓN: controles arreglados de raíz
+## Estado de los controles
+- Siguiente y anterior: FUNCIONAN (verificado con el firmware).
+- Play/pausa: en v5 no respondía. Ahora se manda por triple vía (comando toggle
+  + broadcast directo play/pause + tabla alternativa) para que enganche.
 
-Descompilando el firmware encontré el mecanismo EXACTO de control. El receptor
-`BaseInterface$5.onReceive` del sistema NWD procesa así:
+## Arreglos de esta versión
+**Reloj Nixie legible.** Antes el dígito se difuminaba hasta desaparecer porque
+el glow borroneaba el número. Ahora el dígito se dibuja SÓLIDO y nítido, con el
+glow por detrás. Se lee siempre.
 
-    Acción: com.nwd.ACTION_PLAY_BTMUSIC_CMD
-    Extra : extra_command
-       1 → togglePlayPause
-       2 → togglePrevious
-       3 → toggleNext
+**Reloj + música por fin hace algo.** En modo "Reloj + música" el reloj Nixie
+aparece en el panel derecho (donde va el visualizador). Al abrir el ecualizador
+el reloj se oculta y vuelve el visualizador; al cerrarlo, vuelve el reloj.
 
-El problema anterior: yo mandaba VARIOS comandos a la vez (dos tablas de código
-distintas + broadcasts de play/pause). El módulo recibía play + previous + next
-revueltos y hacía cualquier cosa — por eso "play cambiaba de canción" y
-"retroceder pausaba". Se pisaban entre sí.
+**Fondo cargable más compatible.** Prueba tres métodos de selección de imagen
+en orden. Si ninguno funciona en tu equipo, ahora avisa con un mensaje en vez
+de fallar en silencio. La imagen elegida se copia a la app para que sobreviva
+reinicios.
 
-Ahora se manda UN SOLO comando limpio con el valor correcto. Los botones
-deberían funcionar bien: anterior, play/pausa y siguiente cada uno con su acción.
-
-## También en esta versión (de la v4)
-- Barras estilo CarMusicPlayer (segmentos LED apilados con reflejo).
-- Reloj Nixie realista (panal hexagonal, glow multicapa, vidrio).
-- Se puede salir del reloj (tocar la pantalla o botón atrás).
-- Marco de neón tipo aviso luminoso alrededor de la pantalla.
+**Barras segmentadas tipo CarMusicPlayer, marco de neón, salir del reloj** —
+todo lo de la v5 sigue.
 
 ## Compilar
 Subí el contenido de esta carpeta a un repo (incluida la carpeta oculta
 `.github`). El workflow corre `gradle assembleDebug` y sube el APK.
 
-## Al probar
-Los botones anterior / play-pausa / siguiente ahora deberían hacer cada uno
-lo suyo, sin descoordinarse. Si algo sigue raro, el diagnóstico (⚙ → datos
-crudos) sigue disponible para verlo.
+## Al probar, contame
+1. ¿Play/pausa ya funciona?
+2. ¿El reloj Nixie se ve nítido (número legible)?
+3. En modo "Reloj + música", ¿aparece el reloj a la derecha y desaparece al
+   abrir el ecualizador?
+4. ¿El botón de cargar fondo abre algo o da el mensaje de aviso?

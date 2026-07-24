@@ -142,13 +142,25 @@ class MainActivity : AppCompatActivity() {
 
         // modo de pantalla
         when (prefs.screenMode) {
-            0 -> { b.playerRoot.visibility = View.VISIBLE; b.clockRoot.visibility = View.GONE }
-            1 -> { b.playerRoot.visibility = View.GONE; b.clockRoot.visibility = View.VISIBLE }
-            2 -> { b.playerRoot.visibility = View.VISIBLE; b.clockRoot.visibility = View.GONE }
+            0 -> { // solo reproductor
+                b.playerRoot.visibility = View.VISIBLE; b.clockRoot.visibility = View.GONE
+                showPanelClock(false)
+            }
+            1 -> { // solo reloj Nixie a pantalla completa
+                b.playerRoot.visibility = View.GONE; b.clockRoot.visibility = View.VISIBLE
+                showPanelClock(false)
+            }
+            2 -> { // reproductor + reloj en el panel del visualizador
+                b.playerRoot.visibility = View.VISIBLE; b.clockRoot.visibility = View.GONE
+                showPanelClock(!eqVisible)   // el reloj se oculta si el eq esta abierto
+            }
         }
         b.nixie.glow = prefs.nixieGlow
         b.nixie.use24h = prefs.nixie24h
         b.nixie.startClock()
+        b.nixiePanel.glow = prefs.nixieGlow
+        b.nixiePanel.use24h = prefs.nixie24h
+        b.nixiePanel.startClock()
 
         // Tocar el reloj vuelve al reproductor (evita quedar atrapado)
         b.clockRoot.setOnClickListener {
@@ -194,21 +206,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun pickBackground() {
-        // OPEN_DOCUMENT permite permiso persistente; si el firmware viejo no lo
-        // soporta, caemos a GET_CONTENT y copiamos la imagen a almacenamiento propio.
-        try {
-            val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+        // Probar varios intents en orden de compatibilidad. En firmwares chinos
+        // a veces no hay app que responda; avisamos si es el caso.
+        val intents = listOf(
+            Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "image/*"; addCategory(Intent.CATEGORY_OPENABLE)
+            },
+            Intent(Intent.ACTION_PICK,
+                android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI),
+            Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE); type = "image/*"
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                         Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
             }
-            startActivityForResult(i, PICK_BG)
-        } catch (_: Throwable) {
-            try {
-                val i = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
-                startActivityForResult(i, PICK_BG)
-            } catch (_: Throwable) {}
+        )
+        for (i in intents) {
+            if (i.resolveActivity(packageManager) != null) {
+                try { startActivityForResult(i, PICK_BG); return } catch (_: Throwable) {}
+            }
         }
+        toast("No hay app para elegir imágenes en este equipo. Copiá una foto a la memoria y usá un explorador.")
     }
 
     /** Copia el contenido de una uri a un archivo propio y devuelve su ruta. */
@@ -227,14 +242,15 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == PICK_BG && resultCode == Activity.RESULT_OK) {
             val uri = data?.data ?: return
-            var stored: String? = null
-            try {
-                contentResolver.takePersistableUriPermission(
-                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                stored = uri.toString()
-            } catch (_: Throwable) {
-                // sin permiso persistente: copiar a almacenamiento propio
-                stored = copyBgToLocal(uri)
+            // Siempre copiamos a almacenamiento propio: es lo mas robusto y
+            // sobrevive reinicios sin depender de permisos de uri.
+            var stored: String? = copyBgToLocal(uri)
+            if (stored == null) {
+                try {
+                    contentResolver.takePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    stored = uri.toString()
+                } catch (_: Throwable) {}
             }
             if (stored == null) stored = copyBgToLocal(uri)
             prefs.bgUri = stored
@@ -341,6 +357,14 @@ class MainActivity : AppCompatActivity() {
         eqVisible = !eqVisible
         if (eqVisible && eq.bandCount == 0) buildEq()
         b.eqPanel.visibility = if (eqVisible) View.VISIBLE else View.GONE
+        // En modo reloj+musica, el reloj del panel se oculta cuando abris el eq
+        if (prefs.screenMode == 2) showPanelClock(!eqVisible)
+    }
+
+    /** Muestra u oculta el reloj embebido en el panel derecho (y el visualizador). */
+    private fun showPanelClock(show: Boolean) {
+        b.nixiePanel.visibility = if (show) View.VISIBLE else View.GONE
+        b.visualizer.visibility = if (show) View.GONE else View.VISIBLE
     }
 
     private fun buildEq() {
@@ -400,18 +424,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun toast(msg: String) =
+        android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show()
+
     override fun onStart() {
         super.onStart()
         receiver.register(applicationContext)
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED) b.visualizer.start()
         b.nixie.startClock()
+        b.nixiePanel.startClock()
     }
 
     override fun onStop() {
         receiver.unregister(applicationContext)
         b.visualizer.stop()
         b.nixie.stopClock()
+        b.nixiePanel.stopClock()
         b.neonFrame.stopFx()
         NeonFx.stopFlicker()
         super.onStop()
